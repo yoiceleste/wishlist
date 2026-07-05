@@ -5,9 +5,7 @@ import {
   getAnnualBudget,
   getPurchaseDecisions,
   getOwnedItems,
-  initializeStore,
 } from '../data/store';
-import mockData from '../data/mockData';
 import COLORS from '../theme';
 
 const cardStyle = {
@@ -310,12 +308,6 @@ export default function Home() {
   const [ownedItems, setOwnedItems] = useState([]);
 
   useEffect(() => {
-    // 首次加载时，如果 localStorage 没有数据则初始化
-    const existingDecisions = getPurchaseDecisions();
-    if (existingDecisions.length === 0) {
-      initializeStore(mockData);
-    }
-
     // 加载数据
     setMonthlyBudget(getMonthlyBudget());
     setAnnualBudget(getAnnualBudget());
