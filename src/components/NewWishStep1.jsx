@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { purchaseCategories } from '../utils/categories';
+import { getNewWishDraft, saveNewWishDraft } from '../utils/newWishDraft';
 import COLORS from '../theme';
 
 const navBarStyle = {
@@ -105,13 +106,22 @@ function StepIndicator({ current }) {
 export default function NewWishStep1() {
   const navigate = useNavigate();
   const location = useLocation();
-  const prevState = location.state || {};
+  const prevState = { ...getNewWishDraft(), ...(location.state || {}) };
 
   const [name, setName] = useState(prevState.name || '');
   const [category, setCategory] = useState(prevState.category || '');
   const [price, setPrice] = useState(prevState.price || '');
   const [purpose, setPurpose] = useState(prevState.purpose || '');
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    saveNewWishDraft({
+      name,
+      category,
+      price,
+      purpose,
+    });
+  }, [name, category, price, purpose]);
 
   const validate = () => {
     const newErrors = {};
@@ -126,15 +136,16 @@ export default function NewWishStep1() {
   const handleNext = () => {
     if (!validate()) return;
 
-    navigate('/new/step2', {
-      state: {
-        ...prevState,
-        name: name.trim(),
-        category,
-        price: parseFloat(price),
-        purpose: purpose.trim(),
-      },
-    });
+    const nextState = {
+      ...prevState,
+      name: name.trim(),
+      category,
+      price: parseFloat(price),
+      purpose: purpose.trim(),
+    };
+    saveNewWishDraft(nextState);
+
+    navigate('/new/step2', { state: nextState });
   };
 
   return (

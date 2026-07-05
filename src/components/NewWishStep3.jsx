@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getMonthlyBudget, getAnnualBudget } from '../data/store';
+import { getNewWishDraft, saveNewWishDraft } from '../utils/newWishDraft';
 import COLORS from '../theme';
 
 const navBarStyle = {
@@ -231,7 +232,7 @@ function RadioOption({ label, selected, onClick }) {
 export default function NewWishStep3() {
   const navigate = useNavigate();
   const location = useLocation();
-  const prevState = location.state || {};
+  const prevState = { ...getNewWishDraft(), ...(location.state || {}) };
 
   const [budgetType, setBudgetType] = useState(prevState.budgetType || '');
   const [monthlyPayment, setMonthlyPayment] = useState(prevState.monthlyPayment || '');
@@ -246,32 +247,43 @@ export default function NewWishStep3() {
       ? (parseFloat(annualPayment) / parseInt(installmentMonths, 10)).toFixed(2)
       : 0;
 
-  const handlePrev = () => {
-    navigate('/new/step2', {
-      state: {
-        ...prevState,
-        budgetType,
-        monthlyPayment: monthlyPayment ? parseFloat(monthlyPayment) : 0,
-        annualPayment: annualPayment ? parseFloat(annualPayment) : 0,
-        installment,
-        installmentMonths: installmentMonths ? parseInt(installmentMonths, 10) : 0,
-        monthlyInstallment: parseFloat(computedMonthlyInstallment) || 0,
-      },
+  useEffect(() => {
+    saveNewWishDraft({
+      budgetType,
+      monthlyPayment,
+      annualPayment,
+      installment,
+      installmentMonths,
+      monthlyInstallment: parseFloat(computedMonthlyInstallment) || 0,
     });
+  }, [budgetType, monthlyPayment, annualPayment, installment, installmentMonths, computedMonthlyInstallment]);
+
+  const handlePrev = () => {
+    const nextState = {
+      ...prevState,
+      budgetType,
+      monthlyPayment: monthlyPayment ? parseFloat(monthlyPayment) : 0,
+      annualPayment: annualPayment ? parseFloat(annualPayment) : 0,
+      installment,
+      installmentMonths: installmentMonths ? parseInt(installmentMonths, 10) : 0,
+      monthlyInstallment: parseFloat(computedMonthlyInstallment) || 0,
+    };
+    saveNewWishDraft(nextState);
+    navigate('/new/step2', { state: nextState });
   };
 
   const handleNext = () => {
-    navigate('/new/step4', {
-      state: {
-        ...prevState,
-        budgetType,
-        monthlyPayment: monthlyPayment ? parseFloat(monthlyPayment) : 0,
-        annualPayment: annualPayment ? parseFloat(annualPayment) : 0,
-        installment,
-        installmentMonths: installment && installmentMonths ? parseInt(installmentMonths, 10) : 0,
-        monthlyInstallment: parseFloat(computedMonthlyInstallment) || 0,
-      },
-    });
+    const nextState = {
+      ...prevState,
+      budgetType,
+      monthlyPayment: monthlyPayment ? parseFloat(monthlyPayment) : 0,
+      annualPayment: annualPayment ? parseFloat(annualPayment) : 0,
+      installment,
+      installmentMonths: installment && installmentMonths ? parseInt(installmentMonths, 10) : 0,
+      monthlyInstallment: parseFloat(computedMonthlyInstallment) || 0,
+    };
+    saveNewWishDraft(nextState);
+    navigate('/new/step4', { state: nextState });
   };
 
   const isBothBudget = budgetType === '同时影响月度和年度预算';

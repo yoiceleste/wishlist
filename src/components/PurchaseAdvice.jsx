@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import {
   savePurchaseDecision,
@@ -6,6 +6,7 @@ import {
   updatePurchaseDecision,
 } from '../data/store';
 import { generateRecommendation } from '../utils/recommendation';
+import { getNewWishDraft, clearNewWishDraft } from '../utils/newWishDraft';
 import COLORS from '../theme';
 
 // 建议类型 -> 颜色映射
@@ -374,14 +375,14 @@ function ActionButtons({ suggestion, decisionId, onUpdateStatus, onReanalyze }) 
       case '现在可以买':
         buttons.push(
           { label: '标记已购买', status: 'purchased', color: COLORS.primary },
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning },
+          { label: '加入冷静期', status: 'wishlist', color: COLORS.warning },
           { label: '暂时不买', status: 'skip', color: COLORS.danger }
         );
         break;
 
       case '可以买但建议等优惠':
         buttons.push(
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning },
+          { label: '加入冷静期', status: 'wishlist', color: COLORS.warning },
           { label: '标记已购买', status: 'purchased', color: COLORS.primary },
           { label: '暂时不买', status: 'skip', color: COLORS.danger }
         );
@@ -389,7 +390,7 @@ function ActionButtons({ suggestion, decisionId, onUpdateStatus, onReanalyze }) 
 
       case '加入冷静期':
         buttons.push(
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning },
+          { label: '加入冷静期', status: 'wishlist', color: COLORS.warning },
           { label: '标记已购买', status: 'purchased', color: COLORS.primary },
           { label: '暂时不买', status: 'skip', color: COLORS.danger }
         );
@@ -397,7 +398,7 @@ function ActionButtons({ suggestion, decisionId, onUpdateStatus, onReanalyze }) 
 
       case '暂缓30天':
         buttons.push(
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning },
+          { label: '加入冷静期', status: 'wishlist', color: COLORS.warning },
           { label: '暂时不买', status: 'skip', color: COLORS.danger },
           { label: '标记已购买', status: 'purchased', color: COLORS.primary }
         );
@@ -407,7 +408,7 @@ function ActionButtons({ suggestion, decisionId, onUpdateStatus, onReanalyze }) 
         buttons.push(
           { label: '暂时不买', status: 'skip', color: COLORS.danger },
           { label: '放弃', status: 'given_up', color: '#9CA3AF' },
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning }
+          { label: '加入冷静期', status: 'wishlist', color: COLORS.warning }
         );
         break;
 
@@ -421,14 +422,14 @@ function ActionButtons({ suggestion, decisionId, onUpdateStatus, onReanalyze }) 
       case '放入年度计划':
         buttons.push(
           { label: '放入年度计划', status: 'annual_plan', color: '#AF52DE' },
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning },
+          { label: '加入冷静期', status: 'wishlist', color: COLORS.warning },
           { label: '暂时不买', status: 'skip', color: COLORS.danger }
         );
         break;
 
       default:
         buttons.push(
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning },
+          { label: '加入冷静期', status: 'wishlist', color: COLORS.warning },
           { label: '暂时不买', status: 'skip', color: COLORS.danger },
           { label: '标记已购买', status: 'purchased', color: COLORS.primary }
         );
@@ -518,6 +519,7 @@ export default function PurchaseAdvice() {
   const [decision, setDecision] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reanalyzing, setReanalyzing] = useState(false);
+  const hasSavedNewDecisionRef = useRef(false);
 
   useEffect(() => {
     if (id) {
@@ -531,13 +533,16 @@ export default function PurchaseAdvice() {
       }
     } else {
       // 新生成的建议（从 step4 传来的 state）
-      const stateDecision = location.state;
+      const stateDecision = location.state || getNewWishDraft();
 
-      if (!stateDecision) {
+      if (!stateDecision || !stateDecision.name || !stateDecision.category || !stateDecision.price) {
         // 没有传数据也没有 id，返回列表
         navigate('/wishlist');
         return;
       }
+
+      if (hasSavedNewDecisionRef.current) return;
+      hasSavedNewDecisionRef.current = true;
 
       // 生成购买建议
       const recommendation = generateRecommendation(stateDecision);
@@ -545,16 +550,25 @@ export default function PurchaseAdvice() {
       const newDecision = {
         ...stateDecision,
         recommendation,
-        status: 'watching', // 默认加入冷静期
+        status: 'wishlist', // 默认加入冷静期
       };
 
       // 保存到 localStorage
       const saved = savePurchaseDecision(newDecision);
+      if (!saved) {
+        hasSavedNewDecisionRef.current = false;
+        setDecision(null);
+        setLoading(false);
+        alert('保存失败，请检查浏览器存储空间后重试。');
+        return;
+      }
+      clearNewWishDraft();
       setDecision(saved);
+      navigate(`/new/result/${saved.id}`, { replace: true });
     }
 
     setLoading(false);
-  }, [id, location.state]);
+  }, [id, location.state, navigate]);
 
   // 更新状态
   const handleUpdateStatus = (status) => {
@@ -563,10 +577,9 @@ export default function PurchaseAdvice() {
     const now = new Date();
     const updates = { status };
 
-    // 如果状态改为 watching（冷静期），自动记录 wishlist 信息
-    if (status === 'watching' || status === 'wishlist') {
-      const finalStatus = 'wishlist'; // 统一用 wishlist 状态
-      updates.status = finalStatus;
+    // 如果状态改为 wishlist（冷静期），自动记录提醒信息
+    if (status === 'wishlist') {
+      updates.status = 'wishlist';
       updates.wishlistDate = now.toISOString();
       // 第一次默认 90 天后提醒
       const nextReminder = new Date(now);
@@ -578,6 +591,9 @@ export default function PurchaseAdvice() {
     const updated = updatePurchaseDecision(decision.id, updates);
     if (updated) {
       setDecision(updated);
+    } else {
+      alert('状态保存失败，请稍后重试。');
+      return;
     }
 
     // 短暂延迟后返回想买列表，让用户看到状态变化
@@ -598,6 +614,8 @@ export default function PurchaseAdvice() {
       const updated = updatePurchaseDecision(decision.id, { recommendation });
       if (updated) {
         setDecision(updated);
+      } else {
+        alert('重新分析结果保存失败，请稍后重试。');
       }
       setReanalyzing(false);
     }, 300);

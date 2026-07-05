@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { getOwnedItems, addOwnedItem } from '../data/store';
 import { itemStatuses, useFrequencies } from '../utils/categories';
 import { getItemStatusLabel } from '../utils/categories';
+import { getNewWishDraft, saveNewWishDraft } from '../utils/newWishDraft';
 import COLORS from '../theme';
 
 const navBarStyle = {
@@ -88,7 +89,7 @@ function StepIndicator({ current }) {
 export default function NewWishStep4() {
   const navigate = useNavigate();
   const location = useLocation();
-  const prevState = location.state || {};
+  const prevState = { ...getNewWishDraft(), ...(location.state || {}) };
 
   const category = prevState.category || '';
 
@@ -98,6 +99,10 @@ export default function NewWishStep4() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemStatus, setNewItemStatus] = useState('');
   const [newItemFrequency, setNewItemFrequency] = useState('');
+
+  useEffect(() => {
+    saveNewWishDraft({ existingItems: checkedItems });
+  }, [checkedItems]);
 
   // 加载同类物品
   useEffect(() => {
@@ -143,32 +148,32 @@ export default function NewWishStep4() {
 
   // 跳过
   const handleSkip = () => {
+    const nextState = {
+      ...prevState,
+      existingItems: checkedItems,
+    };
+    saveNewWishDraft(nextState);
     // 生成购买建议 -> 导航到结果页
-    navigate('/new/result', {
-      state: {
-        ...prevState,
-        existingItems: checkedItems,
-      },
-    });
+    navigate('/new/result', { state: nextState });
   };
 
   // 生成购买建议
   const handleGenerate = () => {
-    navigate('/new/result', {
-      state: {
-        ...prevState,
-        existingItems: checkedItems,
-      },
-    });
+    const nextState = {
+      ...prevState,
+      existingItems: checkedItems,
+    };
+    saveNewWishDraft(nextState);
+    navigate('/new/result', { state: nextState });
   };
 
   const handlePrev = () => {
-    navigate('/new/step3', {
-      state: {
-        ...prevState,
-        existingItems: checkedItems,
-      },
-    });
+    const nextState = {
+      ...prevState,
+      existingItems: checkedItems,
+    };
+    saveNewWishDraft(nextState);
+    navigate('/new/step3', { state: nextState });
   };
 
   return (
