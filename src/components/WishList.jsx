@@ -166,7 +166,7 @@ function DecisionCard({ item }) {
       </div>
 
       {/* 建议（如果有） */}
-      {suggestionText && item.status === 'watching' && (
+      {suggestionText && item.status === 'wishlist' && (
         <div
           style={{
             fontSize: 12,

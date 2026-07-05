@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usageScenes, frequencies } from '../utils/categories';
+import { getNewWishDraft, saveNewWishDraft } from '../utils/newWishDraft';
 import COLORS from '../theme';
 
 const navBarStyle = {
@@ -109,12 +110,21 @@ function StepIndicator({ current }) {
 export default function NewWishStep2() {
   const navigate = useNavigate();
   const location = useLocation();
-  const prevState = location.state || {};
+  const prevState = { ...getNewWishDraft(), ...(location.state || {}) };
 
   const [selectedScenes, setSelectedScenes] = useState(prevState.usageScenes || []);
   const [frequency, setFrequency] = useState(prevState.frequency || '');
   const [alternatives, setAlternatives] = useState(prevState.alternatives || '');
   const [notes, setNotes] = useState(prevState.notes || '');
+
+  useEffect(() => {
+    saveNewWishDraft({
+      usageScenes: selectedScenes,
+      frequency,
+      alternatives,
+      notes,
+    });
+  }, [selectedScenes, frequency, alternatives, notes]);
 
   const toggleScene = (scene) => {
     setSelectedScenes((prev) =>
@@ -125,27 +135,27 @@ export default function NewWishStep2() {
   };
 
   const handlePrev = () => {
-    navigate('/new/step1', {
-      state: {
-        ...prevState,
-        usageScenes: selectedScenes,
-        frequency,
-        alternatives,
-        notes,
-      },
-    });
+    const nextState = {
+      ...prevState,
+      usageScenes: selectedScenes,
+      frequency,
+      alternatives,
+      notes,
+    };
+    saveNewWishDraft(nextState);
+    navigate('/new/step1', { state: nextState });
   };
 
   const handleNext = () => {
-    navigate('/new/step3', {
-      state: {
-        ...prevState,
-        usageScenes: selectedScenes,
-        frequency,
-        alternatives: alternatives.trim(),
-        notes: notes.trim(),
-      },
-    });
+    const nextState = {
+      ...prevState,
+      usageScenes: selectedScenes,
+      frequency,
+      alternatives: alternatives.trim(),
+      notes: notes.trim(),
+    };
+    saveNewWishDraft(nextState);
+    navigate('/new/step3', { state: nextState });
   };
 
   return (

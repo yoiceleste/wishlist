@@ -123,7 +123,7 @@ export const budgetTypes = [
  */
 export const purchaseStatuses = [
   { value: 'all', label: '全部' },
-  { value: 'watching', label: '冷静期' },
+  { value: 'wishlist', label: '冷静期' },
   { value: 'buy', label: '建议购买' },
   { value: 'skip', label: '不建议现在买' },
   { value: 'purchased', label: '已购买' },
@@ -147,7 +147,7 @@ export function getPurchaseStatusLabel(value) {
  */
 export const purchaseStatusColors = {
   all: '#6B7280',        // 灰色 - 全部
-  watching: '#F59E0B',   // 橙色 - 冷静期
+  wishlist: '#F59E0B',   // 橙色 - 冷静期
   buy: '#10B981',        // 绿色 - 建议购买
   skip: '#EF4444',        // 红色 - 不建议现在买
   purchased: '#3B82F6',  // 蓝色 - 已购买
