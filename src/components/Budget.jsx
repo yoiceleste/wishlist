@@ -202,7 +202,7 @@ function BudgetCardSection({ title, icon, budget, onSave }) {
   );
 }
 
-// ==================== 预算管理主组件 ====================
+// ==================== 预算状态主组件 ====================
 export default function Budget() {
   const [monthlyBudget, setMonthlyBudgetState] = useState(null);
   const [annualBudget, setAnnualBudgetState] = useState(null);
@@ -230,6 +230,20 @@ export default function Budget() {
     setTimeout(() => setSavedMsg(''), 1500);
   };
 
+  const monthlyRemaining = monthlyBudget
+    ? monthlyBudget.total - monthlyBudget.used - monthlyBudget.reserved
+    : 0;
+  const budgetLabel = monthlyRemaining < 0
+    ? '已超支'
+    : monthlyBudget && monthlyRemaining < monthlyBudget.total * 0.2
+    ? '偏紧张'
+    : '还安心';
+  const budgetColor = monthlyRemaining < 0
+    ? COLORS.danger
+    : monthlyBudget && monthlyRemaining < monthlyBudget.total * 0.2
+    ? COLORS.warning
+    : COLORS.success;
+
   return (
     <div
       style={{
@@ -253,7 +267,7 @@ export default function Budget() {
             margin: 0,
           }}
         >
-          预算管理
+          预算状态
         </h1>
       </div>
 
@@ -273,6 +287,33 @@ export default function Budget() {
       )}
 
       <div style={{ padding: '0 20px' }}>
+        {monthlyBudget && (
+          <div
+            style={{
+              ...cardStyle,
+              background: `linear-gradient(135deg, ${COLORS.primaryLight}, #FFFFFF)`,
+              border: `1px solid ${COLORS.primary}20`,
+            }}
+          >
+            <div style={{ fontSize: 13, color: COLORS.primary, fontWeight: 700, marginBottom: 6 }}>
+              本月预算状态
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: budgetColor }}>
+                  ¥{monthlyRemaining.toLocaleString()}
+                </div>
+                <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 4 }}>
+                  本月还可自由消费
+                </div>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: budgetColor }}>
+                {budgetLabel}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 月度预算卡片 */}
         {monthlyBudget && (
           <BudgetCardSection

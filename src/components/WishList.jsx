@@ -166,7 +166,7 @@ function DecisionCard({ item }) {
       </div>
 
       {/* 建议（如果有） */}
-      {suggestionText && item.status === 'watching' && (
+      {suggestionText && item.status === 'wishlist' && (
         <div
           style={{
             fontSize: 12,
@@ -253,7 +253,7 @@ export default function WishList() {
             margin: 0,
           }}
         >
-          想买清单
+          心愿清单
         </h1>
         <p
           style={{
@@ -262,7 +262,7 @@ export default function WishList() {
             margin: '6px 0 0',
           }}
         >
-          共 {decisions.length} 条记录
+          共 {decisions.length} 个心愿
         </p>
       </div>
 
@@ -286,7 +286,7 @@ export default function WishList() {
             <div style={{ fontSize: 48, marginBottom: 12 }}>📭</div>
             <div style={{ fontSize: 14 }}>
               {activeTab === 'all'
-                ? '还没有想买记录，快去添加吧'
+                ? '还没有心愿记录，先记录一个心动吧'
                 : `没有${getPurchaseStatusLabel(activeTab)}的记录`}
             </div>
           </div>
@@ -308,7 +308,7 @@ export default function WishList() {
           color: '#FFFFFF',
           fontSize: 24,
           cursor: 'pointer',
-          boxShadow: '0 4px 16px rgba(0,122,255,0.4)',
+          boxShadow: '0 4px 16px rgba(124,106,242,0.28)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

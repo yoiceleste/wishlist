@@ -32,6 +32,17 @@ function get(key, defaultValue = null) {
     return JSON.parse(raw);
   } catch (e) {
     console.error(`[store] 读取 ${key} 失败:`, e);
+    try {
+      const corrupted = localStorage.getItem(key);
+      if (corrupted !== null) {
+        localStorage.setItem(
+          `${key}_corrupted_${Date.now()}`,
+          corrupted
+        );
+      }
+    } catch (backupError) {
+      console.error(`[store] 备份损坏数据 ${key} 失败:`, backupError);
+    }
     return defaultValue;
   }
 }
@@ -44,8 +55,10 @@ function get(key, defaultValue = null) {
 function set(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch (e) {
     console.error(`[store] 写入 ${key} 失败:`, e);
+    return false;
   }
 }
 
@@ -56,8 +69,10 @@ function set(key, value) {
 function remove(key) {
   try {
     localStorage.removeItem(key);
+    return true;
   } catch (e) {
     console.error(`[store] 移除 ${key} 失败:`, e);
+    return false;
   }
 }
 
@@ -90,7 +105,7 @@ function remove(key) {
  *     inventoryImpact: string, // 库存影响描述
  *     referenceInfo: string,   // 参考信息
  *   },
- *   status: string,           // 状态：watching|wishlist|buy|skip|purchased|given_up|annual_plan
+ *   status: string,           // 状态：wishlist|buy|skip|purchased|given_up|annual_plan
  *   wishlistDate?: string,   // 加入 Wishlist 的日期（ISO格式）
  *   nextReminderDate?: string, // 下一次提醒日期（ISO格式）
  *   wishlistDays?: number,    // 已等待天数（自动计算）
@@ -114,7 +129,7 @@ export function getPurchaseDecisions() {
  * @param {Array} decisions - 想买记录数组
  */
 export function setPurchaseDecisions(decisions) {
-  set(KEYS.PURCHASE_DECISIONS, decisions);
+  return set(KEYS.PURCHASE_DECISIONS, decisions);
 }
 
 /**
@@ -142,7 +157,7 @@ export function addPurchaseDecision(decision) {
     updatedAt: now,
   };
   list.unshift(newItem); // 新记录放到最前面
-  setPurchaseDecisions(list);
+  if (!setPurchaseDecisions(list)) return null;
   return newItem;
 }
 
@@ -164,7 +179,7 @@ export function updatePurchaseDecision(id, updates) {
     createdAt: list[index].createdAt, // 保持创建时间不被覆盖
     updatedAt: new Date().toISOString(),
   };
-  setPurchaseDecisions(list);
+  if (!setPurchaseDecisions(list)) return null;
   return list[index];
 }
 
@@ -227,7 +242,7 @@ export function getOwnedItems() {
  * @param {Array} items - 已有物品数组
  */
 export function setOwnedItems(items) {
-  set(KEYS.OWNED_ITEMS, items);
+  return set(KEYS.OWNED_ITEMS, items);
 }
 
 /**
@@ -254,7 +269,7 @@ export function addOwnedItem(item) {
     createdAt: item.createdAt || now,
   };
   list.unshift(newItem);
-  setOwnedItems(list);
+  if (!setOwnedItems(list)) return null;
   return newItem;
 }
 
@@ -275,7 +290,7 @@ export function updateOwnedItem(id, updates) {
     id: list[index].id,
     createdAt: list[index].createdAt,
   };
-  setOwnedItems(list);
+  if (!setOwnedItems(list)) return null;
   return list[index];
 }
 
@@ -288,7 +303,7 @@ export function removeOwnedItem(id) {
   const list = getOwnedItems();
   const filtered = list.filter((item) => item.id !== id);
   if (filtered.length === list.length) return false;
-  setOwnedItems(filtered);
+  if (!setOwnedItems(filtered)) return false;
   return true;
 }
 
@@ -345,7 +360,7 @@ export function getMonthlyBudget() {
  * @param {Object} budget - 月度预算对象
  */
 export function setMonthlyBudget(budget) {
-  set(KEYS.MONTHLY_BUDGET, budget);
+  return set(KEYS.MONTHLY_BUDGET, budget);
 }
 
 /**
@@ -387,7 +402,7 @@ export function getAnnualBudget() {
  * @param {Object} budget - 年度预算对象
  */
 export function setAnnualBudget(budget) {
-  set(KEYS.ANNUAL_BUDGET, budget);
+  return set(KEYS.ANNUAL_BUDGET, budget);
 }
 
 /**

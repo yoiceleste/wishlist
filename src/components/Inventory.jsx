@@ -259,7 +259,7 @@ export default function Inventory() {
             fontSize: 13,
             fontWeight: 500,
             cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0,122,255,0.3)',
+            boxShadow: '0 2px 8px rgba(124,106,242,0.24)',
             display: 'flex',
             alignItems: 'center',
             gap: 4,

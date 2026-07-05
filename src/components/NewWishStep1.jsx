@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { purchaseCategories } from '../utils/categories';
+import { savePurchaseDecision } from '../data/store';
+import { getNewWishDraft, saveNewWishDraft, clearNewWishDraft } from '../utils/newWishDraft';
 import COLORS from '../theme';
 
 const navBarStyle = {
@@ -105,13 +107,22 @@ function StepIndicator({ current }) {
 export default function NewWishStep1() {
   const navigate = useNavigate();
   const location = useLocation();
-  const prevState = location.state || {};
+  const prevState = { ...getNewWishDraft(), ...(location.state || {}) };
 
   const [name, setName] = useState(prevState.name || '');
   const [category, setCategory] = useState(prevState.category || '');
   const [price, setPrice] = useState(prevState.price || '');
   const [purpose, setPurpose] = useState(prevState.purpose || '');
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    saveNewWishDraft({
+      name,
+      category,
+      price,
+      purpose,
+    });
+  }, [name, category, price, purpose]);
 
   const validate = () => {
     const newErrors = {};
@@ -126,15 +137,56 @@ export default function NewWishStep1() {
   const handleNext = () => {
     if (!validate()) return;
 
-    navigate('/new/step2', {
-      state: {
-        ...prevState,
-        name: name.trim(),
-        category,
-        price: parseFloat(price),
-        purpose: purpose.trim(),
-      },
+    const nextState = {
+      ...prevState,
+      name: name.trim(),
+      category,
+      price: parseFloat(price),
+      purpose: purpose.trim(),
+    };
+    saveNewWishDraft(nextState);
+
+    navigate('/new/step2', { state: nextState });
+  };
+
+  const handleQuickSave = () => {
+    if (!validate()) return;
+
+    const now = new Date();
+    const nextReminder = new Date(now);
+    nextReminder.setDate(nextReminder.getDate() + 30);
+    const parsedPrice = parseFloat(price);
+
+    const saved = savePurchaseDecision({
+      ...prevState,
+      name: name.trim(),
+      category,
+      price: parsedPrice,
+      purpose: purpose.trim(),
+      usageScenes: prevState.usageScenes || [],
+      frequency: prevState.frequency || '',
+      alternatives: prevState.alternatives || '',
+      notes: prevState.notes || '',
+      budgetType: prevState.budgetType || '占用月度预算',
+      monthlyPayment: prevState.monthlyPayment || parsedPrice,
+      annualPayment: prevState.annualPayment || 0,
+      installment: false,
+      installmentMonths: 0,
+      monthlyInstallment: 0,
+      existingItems: prevState.existingItems || [],
+      status: 'wishlist',
+      wishlistDate: now.toISOString(),
+      nextReminderDate: nextReminder.toISOString(),
+      wishlistReminderCount: 0,
     });
+
+    if (!saved) {
+      alert('保存失败，请检查浏览器存储空间后重试。');
+      return;
+    }
+
+    clearNewWishDraft();
+    navigate('/wishlist');
   };
 
   return (
@@ -150,7 +202,7 @@ export default function NewWishStep1() {
         <button style={backBtnStyle} onClick={() => navigate(-1)}>
           &#8592;
         </button>
-        <span style={titleStyle}>记录想买 (1/4)</span>
+        <span style={titleStyle}>记录心愿 · 1/4</span>
         <StepIndicator current={1} />
       </div>
 
@@ -228,9 +280,21 @@ export default function NewWishStep1() {
           </div>
         </div>
 
-        {/* 下一步按钮 */}
+        {/* 继续完善按钮 */}
         <button style={nextBtnStyle} onClick={handleNext}>
-          下一步
+          继续完善分析
+        </button>
+        <button
+          style={{
+            ...nextBtnStyle,
+            marginTop: 12,
+            background: COLORS.primaryLight,
+            color: COLORS.primary,
+            boxShadow: 'none',
+          }}
+          onClick={handleQuickSave}
+        >
+          先放进冷静期
         </button>
       </div>
     </div>

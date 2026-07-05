@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { usageScenes, frequencies } from '../utils/categories';
+import { getNewWishDraft, saveNewWishDraft } from '../utils/newWishDraft';
 import COLORS from '../theme';
 
 const navBarStyle = {
@@ -109,12 +110,21 @@ function StepIndicator({ current }) {
 export default function NewWishStep2() {
   const navigate = useNavigate();
   const location = useLocation();
-  const prevState = location.state || {};
+  const prevState = { ...getNewWishDraft(), ...(location.state || {}) };
 
   const [selectedScenes, setSelectedScenes] = useState(prevState.usageScenes || []);
   const [frequency, setFrequency] = useState(prevState.frequency || '');
   const [alternatives, setAlternatives] = useState(prevState.alternatives || '');
   const [notes, setNotes] = useState(prevState.notes || '');
+
+  useEffect(() => {
+    saveNewWishDraft({
+      usageScenes: selectedScenes,
+      frequency,
+      alternatives,
+      notes,
+    });
+  }, [selectedScenes, frequency, alternatives, notes]);
 
   const toggleScene = (scene) => {
     setSelectedScenes((prev) =>
@@ -125,27 +135,27 @@ export default function NewWishStep2() {
   };
 
   const handlePrev = () => {
-    navigate('/new/step1', {
-      state: {
-        ...prevState,
-        usageScenes: selectedScenes,
-        frequency,
-        alternatives,
-        notes,
-      },
-    });
+    const nextState = {
+      ...prevState,
+      usageScenes: selectedScenes,
+      frequency,
+      alternatives,
+      notes,
+    };
+    saveNewWishDraft(nextState);
+    navigate('/new/step1', { state: nextState });
   };
 
   const handleNext = () => {
-    navigate('/new/step3', {
-      state: {
-        ...prevState,
-        usageScenes: selectedScenes,
-        frequency,
-        alternatives: alternatives.trim(),
-        notes: notes.trim(),
-      },
-    });
+    const nextState = {
+      ...prevState,
+      usageScenes: selectedScenes,
+      frequency,
+      alternatives: alternatives.trim(),
+      notes: notes.trim(),
+    };
+    saveNewWishDraft(nextState);
+    navigate('/new/step3', { state: nextState });
   };
 
   return (
@@ -161,7 +171,7 @@ export default function NewWishStep2() {
         <button style={backBtnStyle} onClick={() => navigate(-1)}>
           &#8592;
         </button>
-        <span style={titleStyle}>记录想买 (2/4)</span>
+        <span style={titleStyle}>记录心愿 · 2/4</span>
         <StepIndicator current={2} />
       </div>
 
@@ -175,9 +185,9 @@ export default function NewWishStep2() {
             padding: 20,
           }}
         >
-          {/* 使用场景 - 多选标签 */}
+          {/* 你打算什么时候用？ - 多选标签 */}
           <div style={fieldGroupStyle}>
-            <div style={labelStyle}>使用场景</div>
+            <div style={labelStyle}>你打算什么时候用？</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {usageScenes.map((scene) => {
                 const isSelected = selectedScenes.includes(scene);
@@ -211,9 +221,9 @@ export default function NewWishStep2() {
             </div>
           </div>
 
-          {/* 预计使用频率 - 单选 */}
+          {/* 大概多久用一次？ - 单选 */}
           <div style={fieldGroupStyle}>
-            <div style={labelStyle}>预计使用频率</div>
+            <div style={labelStyle}>大概多久用一次？</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {frequencies.map((freq) => {
                 const isSelected = frequency === freq;
@@ -247,9 +257,9 @@ export default function NewWishStep2() {
             </div>
           </div>
 
-          {/* 替代方案 */}
+          {/* 已有替代或补充说明 */}
           <div style={fieldGroupStyle}>
-            <div style={labelStyle}>替代方案</div>
+            <div style={labelStyle}>已有替代或补充说明</div>
             <input
               type="text"
               style={inputStyle}
@@ -259,9 +269,9 @@ export default function NewWishStep2() {
             />
           </div>
 
-          {/* 备注 */}
+          {/* 还有什么想补充？ */}
           <div style={fieldGroupStyle}>
-            <div style={labelStyle}>备注</div>
+            <div style={labelStyle}>还有什么想补充？</div>
             <textarea
               style={textareaStyle}
               value={notes}

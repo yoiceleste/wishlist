@@ -97,7 +97,7 @@ function ReviewPhase({ decision, onChoice }) {
         </div>
         <InfoCard label="物品" value={decision.name} />
         <InfoCard
-          label="加入 Wishlist"
+          label="加入冷静期"
           value={daysWaited > 0 ? `${daysWaited} 天前` : '刚刚'}
         />
         <InfoCard label="价格" value={`¥${decision.price?.toLocaleString()}`} />
@@ -371,7 +371,7 @@ function ReanalysisPhase({ decision, onFinalAction }) {
               cursor: 'pointer',
             }}
           >
-            继续 Wishlist
+            继续冷静
           </button>
           <button
             onClick={() => onFinalAction('give_up')}
@@ -436,7 +436,7 @@ export default function WishlistReview() {
         break;
 
       case 'less_interested':
-        // 继续 Wishlist，30 天后再次提醒
+        // 继续冷静，30 天后再次提醒
         const nextReminder30 = new Date(now);
         nextReminder30.setDate(nextReminder30.getDate() + 30);
         updatePurchaseDecision(decision.id, {

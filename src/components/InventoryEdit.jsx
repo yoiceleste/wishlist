@@ -602,7 +602,7 @@ export default function InventoryEdit() {
               cursor: saving ? 'not-allowed' : 'pointer',
               fontFamily:
                 "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-              boxShadow: '0 4px 16px rgba(0,122,255,0.25)',
+              boxShadow: '0 4px 16px rgba(124,106,242,0.22)',
               opacity: saving ? 0.7 : 1,
             }}
           >

@@ -662,7 +662,7 @@ function generateLongTermReasons(decision, tags) {
 
   if (daysWaited >= 90) {
     reasons.push(
-      `这件商品已经在 Wishlist 中保留了 ${daysWaited} 天，说明它并不是短暂冲动消费，而是持续存在的需求。`
+      `这件商品已经在 冷静期中保留了 ${daysWaited} 天，说明它并不是短暂冲动消费，而是持续存在的需求。`
     );
   }
 

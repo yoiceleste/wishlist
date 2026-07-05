@@ -5,7 +5,7 @@ import COLORS from '../theme';
 // Tab 配置
 const TABS = [
   { path: '/', icon: '\uD83C\uDFE0', label: '首页' },
-  { path: '/wishlist', icon: '\uD83D\uDC9D', label: '想买' },
+  { path: '/wishlist', icon: '\uD83D\uDC9D', label: '心愿' },
   { path: '/inventory', icon: '\uD83D\uDCE6', label: '库存' },
   { path: '/budget', icon: '\uD83D\uDCB0', label: '预算' },
 ];

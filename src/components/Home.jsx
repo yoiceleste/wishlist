@@ -6,6 +6,7 @@ import {
   getPurchaseDecisions,
   getOwnedItems,
 } from '../data/store';
+import { getNewWishDraft } from '../utils/newWishDraft';
 import COLORS from '../theme';
 
 const cardStyle = {
@@ -16,107 +17,170 @@ const cardStyle = {
   marginBottom: 16,
 };
 
-// ==================== 预算卡片组件 ====================
-function BudgetCard({ title, icon, budget }) {
-  const total = budget.total;
-  const used = budget.used;
-  const reserved = budget.reserved;
+function getBudgetSnapshot(budget) {
+  if (!budget) return { remaining: 0, label: '未设置', color: COLORS.textSecondary };
+  const total = Number(budget.total) || 0;
+  const used = Number(budget.used) || 0;
+  const reserved = Number(budget.reserved) || 0;
   const remaining = total - used - reserved;
-  const usedPercent = Math.min(((used + reserved) / total) * 100, 100);
 
-  let remainColor = COLORS.success;
-  let remainLabel = '充足';
-  if (remaining < 0) {
-    remainColor = COLORS.danger;
-    remainLabel = '超支';
-  } else if (remaining < total * 0.2) {
-    remainColor = COLORS.warning;
-    remainLabel = '紧张';
-  }
+  if (remaining < 0) return { remaining, label: '已超支', color: COLORS.danger };
+  if (total > 0 && remaining < total * 0.2) return { remaining, label: '偏紧张', color: COLORS.warning };
+  return { remaining, label: '还安心', color: COLORS.success };
+}
 
-  let barColor = COLORS.success;
-  if (usedPercent > 90) {
-    barColor = COLORS.danger;
-  } else if (usedPercent > 70) {
-    barColor = COLORS.warning;
-  }
+function getInventorySummary(items) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return items.reduce(
+    (summary, item) => {
+      if (!item.expiryDate) return summary;
+      const expiry = new Date(item.expiryDate);
+      expiry.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor((expiry - today) / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) summary.expired += 1;
+      else if (diffDays <= 60) summary.expiring += 1;
+      return summary;
+    },
+    { expiring: 0, expired: 0 }
+  );
+}
+
+function TodayOverview({ wishlistItems, monthlyBudget, ownedItems }) {
+  const navigate = useNavigate();
+  const today = new Date();
+  const dueItems = wishlistItems.filter((item) => {
+    if (!item.nextReminderDate) return false;
+    return new Date(item.nextReminderDate) <= today;
+  });
+  const budget = getBudgetSnapshot(monthlyBudget);
+  const inventory = getInventorySummary(ownedItems);
+
+  const rows = [
+    {
+      icon: '⏳',
+      label: dueItems.length > 0 ? `${dueItems.length} 个心愿该重新看看` : '今天没有到期提醒',
+      detail: dueItems.length > 0 ? '去复盘' : '可以慢慢来',
+      color: dueItems.length > 0 ? COLORS.warning : COLORS.textSecondary,
+      onClick: dueItems.length > 0 ? () => navigate(`/wishlist/review/${dueItems[0].id}`) : undefined,
+    },
+    {
+      icon: '💰',
+      label: `本月还可自由消费 ¥${budget.remaining.toLocaleString()}`,
+      detail: budget.label,
+      color: budget.color,
+      onClick: () => navigate('/budget'),
+    },
+    {
+      icon: '📦',
+      label:
+        inventory.expired + inventory.expiring > 0
+          ? `${inventory.expired + inventory.expiring} 件库存需要关注`
+          : '库存暂无过期压力',
+      detail: inventory.expired > 0 ? `${inventory.expired} 件已过期` : '查看已有',
+      color: inventory.expired > 0 ? COLORS.danger : COLORS.textSecondary,
+      onClick: () => navigate('/inventory'),
+    },
+  ];
 
   return (
     <div style={cardStyle}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-        <span style={{ fontSize: 22, marginRight: 8 }}>{icon}</span>
-        <span style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>{title}</span>
+      <div style={{ fontSize: 16, fontWeight: 700, color: COLORS.text, marginBottom: 14 }}>
+        今天建议关注
       </div>
-
-      <div style={{ width: '100%', height: 6, background: COLORS.border, borderRadius: 3, marginBottom: 16, overflow: 'hidden' }}>
-        <div style={{ width: `${usedPercent}%`, height: '100%', background: barColor, borderRadius: 3, transition: 'width 0.3s ease' }} />
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <div>
-          <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 }}>总预算</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: COLORS.text }}>¥{total.toLocaleString()}</div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 }}>已用 / 已计划</div>
-          <div style={{ fontSize: 14, fontWeight: 500, color: COLORS.text }}>¥{used.toLocaleString()} / ¥{reserved.toLocaleString()}</div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 }}>剩余（{remainLabel}）</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: remainColor }}>¥{remaining.toLocaleString()}</div>
-        </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {rows.map((row) => (
+          <button
+            key={row.label}
+            onClick={row.onClick}
+            style={{
+              width: '100%',
+              border: 'none',
+              background: COLORS.divider,
+              borderRadius: 14,
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              textAlign: 'left',
+              cursor: row.onClick ? 'pointer' : 'default',
+              fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            }}
+          >
+            <span style={{ fontSize: 20 }}>{row.icon}</span>
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: COLORS.text }}>{row.label}</span>
+            <span style={{ fontSize: 12, color: row.color, fontWeight: 600 }}>{row.detail}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
 }
 
-// ==================== Wishlist 提醒卡片 ====================
-function WishlistReminder({ items }) {
+function DraftCard({ draft }) {
   const navigate = useNavigate();
-  const today = new Date();
-
-  // 筛选到达提醒日期的 wishlist 物品
-  const dueItems = items.filter((item) => {
-    if (item.status !== 'wishlist' || !item.nextReminderDate) return false;
-    return new Date(item.nextReminderDate) <= today;
-  });
-
-  if (dueItems.length === 0) return null;
-
-  const text = dueItems.length === 1
-    ? '有一件放了很久的心动物品，想重新看看吗？'
-    : `有 ${dueItems.length} 件 Wishlist 已到达提醒时间。`;
+  if (!draft || !draft.name) return null;
 
   return (
-    <div
-      onClick={() => navigate(`/wishlist/review/${dueItems[0].id}`)}
+    <button
+      onClick={() => navigate('/new/step1', { state: draft })}
       style={{
         ...cardStyle,
+        width: '100%',
+        border: `1px solid ${COLORS.primary}26`,
+        background: `linear-gradient(135deg, ${COLORS.primaryLight}, #FFFFFF)`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        textAlign: 'left',
         cursor: 'pointer',
-        background: `linear-gradient(135deg, ${COLORS.primaryLight}, ${COLORS.card})`,
-        border: `1px solid ${COLORS.primary}20`,
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 22 }}>💡</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 500, color: COLORS.text, lineHeight: 1.5 }}>
-            {text}
-          </div>
+      <div>
+        <div style={{ fontSize: 13, color: COLORS.primary, fontWeight: 700, marginBottom: 4 }}>
+          继续上次草稿
         </div>
-        <span style={{ fontSize: 16, color: COLORS.primary }}>&#8250;</span>
+        <div style={{ fontSize: 15, color: COLORS.text, fontWeight: 600 }}>{draft.name}</div>
       </div>
-    </div>
+      <span style={{ color: COLORS.primary, fontSize: 20 }}>›</span>
+    </button>
   );
 }
 
-// ==================== Wishlist 列表卡片 ====================
-function WishlistList({ items }) {
+function WishPreview({ items }) {
   const navigate = useNavigate();
+  if (!items || items.length === 0) {
+    return (
+      <div style={cardStyle}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: COLORS.text, marginBottom: 8 }}>
+          冷静中的心愿
+        </div>
+        <div style={{ fontSize: 14, color: COLORS.textSecondary, lineHeight: 1.7 }}>
+          看到心动的东西，先放进这里冷静一下。我会帮你一起看看预算、已有物品和真实使用场景。
+        </div>
+        <button
+          onClick={() => navigate('/new/step1')}
+          style={{
+            marginTop: 14,
+            width: '100%',
+            border: 'none',
+            borderRadius: COLORS.radiusButton,
+            background: COLORS.primary,
+            color: '#FFFFFF',
+            padding: '12px 0',
+            fontSize: 15,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          记录第一个心愿
+        </button>
+      </div>
+    );
+  }
 
-  if (!items || items.length === 0) return null;
-
-  // 按等待天数排序（最久排最前）
   const sorted = [...items].sort((a, b) => {
     const daysA = a.wishlistDate ? (new Date() - new Date(a.wishlistDate)) / (1000 * 60 * 60 * 24) : 0;
     const daysB = b.wishlistDate ? (new Date() - new Date(b.wishlistDate)) / (1000 * 60 * 60 * 24) : 0;
@@ -125,215 +189,148 @@ function WishlistList({ items }) {
 
   return (
     <div style={cardStyle}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
-        <span style={{ fontSize: 22, marginRight: 8 }}>💝</span>
-        <span style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>Wishlist</span>
-        <span style={{
-          marginLeft: 8,
-          fontSize: 12,
-          color: COLORS.primary,
-          background: COLORS.primaryLight,
-          padding: '2px 8px',
-          borderRadius: COLORS.radiusTag,
-        }}>
-          {items.length} 件
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: COLORS.text }}>冷静中的心愿</div>
+          <div style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 3 }}>{items.length} 个正在等待答案</div>
+        </div>
+        <button
+          onClick={() => navigate('/wishlist')}
+          style={{ border: 'none', background: COLORS.primaryLight, color: COLORS.primary, borderRadius: 16, padding: '6px 10px', fontWeight: 700 }}
+        >
+          全部
+        </button>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-        {sorted.map((item, index) => {
-          const wishlistDate = item.wishlistDate ? new Date(item.wishlistDate) : null;
-          const daysWaited = wishlistDate
-            ? Math.floor((new Date() - wishlistDate) / (1000 * 60 * 60 * 24))
-            : 0;
-
-          return (
-            <div key={item.id}>
-              <div
-                onClick={() => navigate(`/wishlist/review/${item.id}`)}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '12px 0',
-                  cursor: 'pointer',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: COLORS.text }}>
-                    {item.name}
-                  </div>
-                  <div style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 2 }}>
-                    等待 {daysWaited} 天
-                  </div>
-                </div>
-                <div style={{ fontSize: 14, color: COLORS.textSecondary }}>
-                  ¥{item.price?.toLocaleString()}
-                </div>
+      {sorted.slice(0, 3).map((item, index) => {
+        const daysWaited = item.wishlistDate
+          ? Math.floor((new Date() - new Date(item.wishlistDate)) / (1000 * 60 * 60 * 24))
+          : 0;
+        return (
+          <div key={item.id}>
+            <button
+              onClick={() => navigate(`/wishlist/review/${item.id}`)}
+              style={{
+                width: '100%',
+                border: 'none',
+                background: 'transparent',
+                padding: '12px 0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                textAlign: 'left',
+                cursor: 'pointer',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.text }}>{item.name}</div>
+                <div style={{ fontSize: 12, color: COLORS.textSecondary, marginTop: 3 }}>已经冷静 {daysWaited} 天</div>
               </div>
-              {index < sorted.length - 1 && (
-                <div style={{ height: 0.5, background: COLORS.border }} />
-              )}
-            </div>
-          );
-        })}
-      </div>
+              <div style={{ fontSize: 14, color: COLORS.textSecondary }}>¥{item.price?.toLocaleString()}</div>
+            </button>
+            {index < Math.min(sorted.length, 3) - 1 && <div style={{ height: 0.5, background: COLORS.border }} />}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-// ==================== 库存提醒组件（优化版） ====================
-function InventoryReminder({ items }) {
-  const navigate = useNavigate();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // 计算快过期和已过期物品
-  const expiringItems = [];
-  const expiredItems = [];
-
-  items.forEach((item) => {
-    if (!item.expiryDate) return;
-    const expiry = new Date(item.expiryDate);
-    expiry.setHours(0, 0, 0, 0);
-    const diffDays = Math.floor((expiry - today) / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) {
-      expiredItems.push({ ...item, overdueDays: Math.abs(diffDays) });
-    } else if (diffDays <= 60) {
-      expiringItems.push({ ...item, remainingDays: diffDays });
-    }
-  });
-
-  // 按天数排序
-  expiringItems.sort((a, b) => a.remainingDays - b.remainingDays);
-  expiredItems.sort((a, b) => b.overdueDays - a.overdueDays);
-
-  // 没有需要提醒的
-  if (expiringItems.length === 0 && expiredItems.length === 0) {
-    return (
-      <div style={cardStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-          <span style={{ fontSize: 22, marginRight: 8 }}>📦</span>
-          <span style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>库存提醒</span>
-        </div>
-        <div style={{ textAlign: 'center', padding: '12px 0', color: COLORS.textSecondary, fontSize: 14 }}>
-          目前没有快过期或已过期物品。
-        </div>
-      </div>
-    );
-  }
+function BudgetCard({ title, icon, budget }) {
+  const total = Number(budget.total) || 0;
+  const used = Number(budget.used) || 0;
+  const reserved = Number(budget.reserved) || 0;
+  const remaining = total - used - reserved;
+  const usedPercent = total > 0 ? Math.min(((used + reserved) / total) * 100, 100) : 0;
+  const snapshot = getBudgetSnapshot(budget);
 
   return (
     <div style={cardStyle}>
-      <div
-        style={{ display: 'flex', alignItems: 'center', marginBottom: 14, cursor: 'pointer' }}
-        onClick={() => navigate('/inventory')}
-      >
-        <span style={{ fontSize: 22, marginRight: 8 }}>📦</span>
-        <span style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>库存提醒</span>
-        <span style={{ marginLeft: 8, fontSize: 12, color: COLORS.textSecondary }}>
-          点击查看全部
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+        <span style={{ fontSize: 22, marginRight: 8 }}>{icon}</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.text }}>{title}</span>
+        <span style={{ marginLeft: 'auto', color: snapshot.color, fontSize: 12, fontWeight: 700 }}>{snapshot.label}</span>
       </div>
-
-      {/* 快过期区域 */}
-      {expiringItems.length > 0 && (
-        <div style={{ marginBottom: expiredItems.length > 0 ? 14 : 0 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {expiringItems.slice(0, 3).map((item, index) => (
-              <div key={item.id}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
-                  <div style={{ fontSize: 14, color: COLORS.text }}>{item.name}</div>
-                  <span style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: COLORS.warning,
-                    background: '#FFF8E6',
-                    padding: '3px 10px',
-                    borderRadius: COLORS.radiusTag,
-                  }}>
-                    还有 {item.remainingDays} 天
-                  </span>
-                </div>
-                {index < Math.min(expiringItems.length, 3) - 1 && (
-                  <div style={{ height: 0.5, background: COLORS.border }} />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 已过期区域 */}
-      {expiredItems.length > 0 && (
+      <div style={{ width: '100%', height: 8, background: COLORS.divider, borderRadius: 8, marginBottom: 16, overflow: 'hidden' }}>
+        <div style={{ width: `${usedPercent}%`, height: '100%', background: snapshot.color, borderRadius: 8 }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
-          {expiringItems.length > 0 && (
-            <div style={{ height: 0.5, background: COLORS.border, margin: '0 0 12px' }} />
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {expiredItems.slice(0, 3).map((item, index) => (
-              <div key={item.id}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
-                  <div style={{ fontSize: 14, color: COLORS.text }}>{item.name}</div>
-                  <span style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: COLORS.danger,
-                    background: '#FFF0F0',
-                    padding: '3px 10px',
-                    borderRadius: COLORS.radiusTag,
-                  }}>
-                    已过期 {item.overdueDays} 天
-                  </span>
-                </div>
-                {index < Math.min(expiredItems.length, 3) - 1 && (
-                  <div style={{ height: 0.5, background: COLORS.border }} />
-                )}
-              </div>
-            ))}
-          </div>
+          <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 }}>总预算</div>
+          <div style={{ fontSize: 19, fontWeight: 800, color: COLORS.text }}>¥{total.toLocaleString()}</div>
         </div>
-      )}
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 }}>剩余</div>
+          <div style={{ fontSize: 19, fontWeight: 800, color: snapshot.color }}>¥{remaining.toLocaleString()}</div>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ==================== 首页主组件 ====================
+function InventoryReminder({ items }) {
+  const navigate = useNavigate();
+  const summary = getInventorySummary(items);
+  const hasPressure = summary.expiring + summary.expired > 0;
+
+  return (
+    <button
+      onClick={() => navigate('/inventory')}
+      style={{
+        ...cardStyle,
+        width: '100%',
+        border: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        textAlign: 'left',
+        cursor: 'pointer',
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      }}
+    >
+      <span style={{ fontSize: 24 }}>📦</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.text }}>库存提醒</div>
+        <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 3 }}>
+          {hasPressure ? `${summary.expiring} 件快过期，${summary.expired} 件已过期` : '目前没有快过期或已过期物品'}
+        </div>
+      </div>
+      <span style={{ color: COLORS.primary, fontSize: 20 }}>›</span>
+    </button>
+  );
+}
+
 export default function Home() {
   const navigate = useNavigate();
-
   const [monthlyBudget, setMonthlyBudget] = useState(null);
   const [annualBudget, setAnnualBudget] = useState(null);
   const [wishlistItems, setWishlistItems] = useState([]);
   const [ownedItems, setOwnedItems] = useState([]);
+  const [draft, setDraft] = useState(null);
 
   useEffect(() => {
-    // 加载数据
     setMonthlyBudget(getMonthlyBudget());
     setAnnualBudget(getAnnualBudget());
-
     const allDecisions = getPurchaseDecisions();
-    // wishlist 状态的物品
-    const wishlist = allDecisions.filter((d) => d.status === 'wishlist');
-    setWishlistItems(wishlist);
-
+    setWishlistItems(allDecisions.filter((d) => d.status === 'wishlist'));
     setOwnedItems(getOwnedItems());
+    setDraft(getNewWishDraft());
   }, []);
 
   return (
-    <div style={{ minHeight: '100vh', background: COLORS.bg, paddingBottom: 80 }}>
-      {/* 顶部标题区域 */}
-      <div style={{ padding: '40px 20px 30px', textAlign: 'center' }}>
-        <h1 style={{ fontSize: 32, fontWeight: 800, color: COLORS.text, margin: '0 0 8px', letterSpacing: 1 }}>
+    <div style={{ minHeight: '100vh', background: COLORS.bg, paddingBottom: 88 }}>
+      <div style={{ padding: '44px 20px 24px' }}>
+        <div style={{ fontSize: 13, color: COLORS.primary, fontWeight: 800, marginBottom: 8 }}>
+          下单前，先冷静一下
+        </div>
+        <h1 style={{ fontSize: 34, fontWeight: 850, color: COLORS.text, margin: 0, letterSpacing: 0.5 }}>
           心动清单
         </h1>
-        <p style={{ fontSize: 14, color: COLORS.textSecondary, margin: 0 }}>
-          下单前，先看看预算和已有
+        <p style={{ fontSize: 15, color: COLORS.textSecondary, margin: '8px 0 0', lineHeight: 1.6 }}>
+          记录一个心动，我会帮你看看预算、已有和真实使用价值。
         </p>
       </div>
 
-      {/* 主按钮 */}
-      <div style={{ padding: '0 20px', marginBottom: 24 }}>
+      <div style={{ padding: '0 20px', marginBottom: 18 }}>
         <button
           onClick={() => navigate('/new/step1')}
           style={{
@@ -341,38 +338,24 @@ export default function Home() {
             padding: '16px 0',
             border: 'none',
             borderRadius: COLORS.radiusButton,
-            background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.primaryDark})`,
+            background: COLORS.primary,
             color: '#FFFFFF',
             fontSize: 16,
-            fontWeight: 600,
+            fontWeight: 800,
             cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(0,122,255,0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
+            boxShadow: COLORS.shadowButton,
           }}
         >
-          <span style={{ fontSize: 20 }}>✏️</span>
-          记录想买
+          + 记录一个心动
         </button>
       </div>
 
-      {/* 内容区域 */}
       <div style={{ padding: '0 20px' }}>
-        {/* Wishlist 提醒（到达提醒日期的） */}
-        <WishlistReminder items={wishlistItems} />
-
-        {/* Wishlist 列表 */}
-        <WishlistList items={wishlistItems} />
-
-        {/* 月度预算卡片 */}
+        <DraftCard draft={draft} />
+        <TodayOverview wishlistItems={wishlistItems} monthlyBudget={monthlyBudget} ownedItems={ownedItems} />
+        <WishPreview items={wishlistItems} />
         {monthlyBudget && <BudgetCard title="本月预算" icon="💰" budget={monthlyBudget} />}
-
-        {/* 年度预算卡片 */}
         {annualBudget && <BudgetCard title="年度预算" icon="💎" budget={annualBudget} />}
-
-        {/* 库存提醒（优化版） */}
         <InventoryReminder items={ownedItems} />
       </div>
     </div>

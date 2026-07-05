@@ -1,18 +1,18 @@
 /**
  * 心动清单 - 主题色配置
- * Mac 极简风格：蓝色 + 灰色，干净克制
+ * 温柔理性风格：柔和紫 + 奶油背景，保留清晰的消费决策语义色
  */
 
 const THEME = {
   // 布局
-  bg: '#F5F5F7',           // 页面背景 - Apple 灰白
+  bg: '#F8F7FA',           // 页面背景 - 温柔灰紫
   card: '#FFFFFF',          // 卡片背景
   cardHover: '#FAFAFA',     // 卡片悬浮
 
   // 主色
-  primary: '#007AFF',       // Apple 蓝 - 按钮、选中态
-  primaryDark: '#0056CC',   // 深蓝 - 渐变终点
-  primaryLight: '#E8F2FF',  // 极浅蓝 - 标签背景/选中底色
+  primary: '#7C6AF2',       // 柔和紫 - 按钮、选中态
+  primaryDark: '#5E4FD8',   // 深紫 - 渐变终点
+  primaryLight: '#F2EFFF',  // 极浅紫 - 标签背景/选中底色
 
   // 文字
   text: '#1D1D1F',          // 主文字 - Apple 近黑
@@ -44,11 +44,11 @@ const THEME = {
 
   // 阴影
   shadowCard: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowButton: '0 4px 14px rgba(0,122,255,0.25)',
+  shadowButton: '0 4px 14px rgba(124,106,242,0.22)',
 
   // 圆角
-  radiusCard: 12,
-  radiusButton: 10,
+  radiusCard: 16,
+  radiusButton: 14,
   radiusTag: 20,
   radiusInput: 8,
 };

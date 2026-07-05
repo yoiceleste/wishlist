@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getMonthlyBudget, getAnnualBudget } from '../data/store';
+import { getNewWishDraft, saveNewWishDraft } from '../utils/newWishDraft';
 import COLORS from '../theme';
 
 const navBarStyle = {
@@ -231,7 +232,7 @@ function RadioOption({ label, selected, onClick }) {
 export default function NewWishStep3() {
   const navigate = useNavigate();
   const location = useLocation();
-  const prevState = location.state || {};
+  const prevState = { ...getNewWishDraft(), ...(location.state || {}) };
 
   const [budgetType, setBudgetType] = useState(prevState.budgetType || '');
   const [monthlyPayment, setMonthlyPayment] = useState(prevState.monthlyPayment || '');
@@ -246,32 +247,43 @@ export default function NewWishStep3() {
       ? (parseFloat(annualPayment) / parseInt(installmentMonths, 10)).toFixed(2)
       : 0;
 
-  const handlePrev = () => {
-    navigate('/new/step2', {
-      state: {
-        ...prevState,
-        budgetType,
-        monthlyPayment: monthlyPayment ? parseFloat(monthlyPayment) : 0,
-        annualPayment: annualPayment ? parseFloat(annualPayment) : 0,
-        installment,
-        installmentMonths: installmentMonths ? parseInt(installmentMonths, 10) : 0,
-        monthlyInstallment: parseFloat(computedMonthlyInstallment) || 0,
-      },
+  useEffect(() => {
+    saveNewWishDraft({
+      budgetType,
+      monthlyPayment,
+      annualPayment,
+      installment,
+      installmentMonths,
+      monthlyInstallment: parseFloat(computedMonthlyInstallment) || 0,
     });
+  }, [budgetType, monthlyPayment, annualPayment, installment, installmentMonths, computedMonthlyInstallment]);
+
+  const handlePrev = () => {
+    const nextState = {
+      ...prevState,
+      budgetType,
+      monthlyPayment: monthlyPayment ? parseFloat(monthlyPayment) : 0,
+      annualPayment: annualPayment ? parseFloat(annualPayment) : 0,
+      installment,
+      installmentMonths: installmentMonths ? parseInt(installmentMonths, 10) : 0,
+      monthlyInstallment: parseFloat(computedMonthlyInstallment) || 0,
+    };
+    saveNewWishDraft(nextState);
+    navigate('/new/step2', { state: nextState });
   };
 
   const handleNext = () => {
-    navigate('/new/step4', {
-      state: {
-        ...prevState,
-        budgetType,
-        monthlyPayment: monthlyPayment ? parseFloat(monthlyPayment) : 0,
-        annualPayment: annualPayment ? parseFloat(annualPayment) : 0,
-        installment,
-        installmentMonths: installment && installmentMonths ? parseInt(installmentMonths, 10) : 0,
-        monthlyInstallment: parseFloat(computedMonthlyInstallment) || 0,
-      },
-    });
+    const nextState = {
+      ...prevState,
+      budgetType,
+      monthlyPayment: monthlyPayment ? parseFloat(monthlyPayment) : 0,
+      annualPayment: annualPayment ? parseFloat(annualPayment) : 0,
+      installment,
+      installmentMonths: installment && installmentMonths ? parseInt(installmentMonths, 10) : 0,
+      monthlyInstallment: parseFloat(computedMonthlyInstallment) || 0,
+    };
+    saveNewWishDraft(nextState);
+    navigate('/new/step4', { state: nextState });
   };
 
   const isBothBudget = budgetType === '同时影响月度和年度预算';
@@ -289,7 +301,7 @@ export default function NewWishStep3() {
         <button style={backBtnStyle} onClick={() => navigate(-1)}>
           &#8592;
         </button>
-        <span style={titleStyle}>记录想买 (3/4)</span>
+        <span style={titleStyle}>记录心愿 · 3/4</span>
         <StepIndicator current={3} />
       </div>
 
@@ -308,19 +320,19 @@ export default function NewWishStep3() {
         >
           {/* 预算类型选择 */}
           <div style={fieldGroupStyle}>
-            <div style={labelStyle}>预算来源</div>
+            <div style={labelStyle}>这笔钱打算怎么安排？</div>
             <RadioOption
-              label="占用月度预算"
+              label="这个月会买"
               selected={budgetType === '占用月度预算'}
               onClick={() => setBudgetType('占用月度预算')}
             />
             <RadioOption
-              label="占用年度预算"
+              label="今年计划买"
               selected={budgetType === '占用年度预算'}
               onClick={() => setBudgetType('占用年度预算')}
             />
             <RadioOption
-              label="同时影响月度和年度预算"
+              label="分期 / 大件消费"
               selected={budgetType === '同时影响月度和年度预算'}
               onClick={() => setBudgetType('同时影响月度和年度预算')}
             />
@@ -339,7 +351,7 @@ export default function NewWishStep3() {
             >
               {/* 本月实际支付金额 */}
               <div style={fieldGroupStyle}>
-                <div style={labelStyle}>本月实际支付金额（元）</div>
+                <div style={labelStyle}>这个月实际支付（元）</div>
                 <input
                   type="number"
                   style={inputStyle}
@@ -353,7 +365,7 @@ export default function NewWishStep3() {
 
               {/* 年度总占用金额 */}
               <div style={fieldGroupStyle}>
-                <div style={labelStyle}>年度总占用金额（元）</div>
+                <div style={labelStyle}>今年总共会占用（元）</div>
                 <input
                   type="number"
                   style={inputStyle}

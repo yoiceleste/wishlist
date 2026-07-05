@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import {
   savePurchaseDecision,
@@ -6,41 +6,42 @@ import {
   updatePurchaseDecision,
 } from '../data/store';
 import { generateRecommendation } from '../utils/recommendation';
+import { getNewWishDraft, clearNewWishDraft } from '../utils/newWishDraft';
 import COLORS from '../theme';
 
 // 建议类型 -> 颜色映射
 const SUGGESTION_COLORS = {
-  '现在可以买': '#007AFF',
-  '可以买但建议等优惠': '#5AC8FA',
+  '现在可以买': '#34C759',
+  '可以买但建议等优惠': '#7C6AF2',
   '加入冷静期': '#FF9F0A',
   '暂缓30天': '#FF9F0A',
   '不建议现在买': '#FF3B30',
-  '先用已有': '#5AC8FA',
+  '先用已有': '#7C6AF2',
   '放入年度计划': '#AF52DE',
 };
 
 // 标签颜色映射 - 根据标签维度和值判断颜色
 const TAG_COLOR_MAP = {
   // 刚需度
-  '刚需度：高': '#007AFF',
+  '刚需度：高': COLORS.primary,
   '刚需度：中': '#FF9F0A',
   '刚需度：低': '#FF3B30',
   // 替代性
-  '替代性：不可替代': '#007AFF',
+  '替代性：不可替代': COLORS.primary,
   '替代性：部分可替代': '#FF9F0A',
   '替代性：可替代': '#FF3B30',
   // 预算压力
   '预算压力：高': '#FF3B30',
   '预算压力：中': '#FF9F0A',
-  '预算压力：低': '#007AFF',
+  '预算压力：低': COLORS.primary,
   // 使用确定性
-  '使用确定性：高': '#007AFF',
+  '使用确定性：高': COLORS.primary,
   '使用确定性：中': '#FF9F0A',
   '使用确定性：低': '#FF3B30',
   // 库存重复风险
   '库存重复风险：高': '#FF3B30',
   '库存重复风险：中': '#FF9F0A',
-  '库存重复风险：低': '#007AFF',
+  '库存重复风险：低': COLORS.primary,
   // 情绪价值/稀缺性
   '情绪价值/稀缺性：高': '#FF2D55',
   '情绪价值/稀缺性：中': '#FF9F0A',
@@ -117,7 +118,7 @@ function SuggestionCard({ suggestion, itemName }) {
           marginBottom: 6,
         }}
       >
-        {itemName} 的购买建议
+        {itemName} 的决策建议
       </div>
       <div
         style={{
@@ -128,6 +129,36 @@ function SuggestionCard({ suggestion, itemName }) {
         }}
       >
         {suggestion}
+      </div>
+      <div style={{ fontSize: 14, color: COLORS.textSecondary, lineHeight: 1.7, marginTop: 12 }}>
+        先看结论，再决定要买、继续冷静，还是暂时放下。
+      </div>
+    </div>
+  );
+}
+
+function KeyReasonCard({ reasons }) {
+  if (!reasons || reasons.length === 0) return null;
+  return (
+    <div
+      style={{
+        background: COLORS.card,
+        borderRadius: COLORS.radiusCard,
+        boxShadow: COLORS.shadowCard,
+        padding: 20,
+        marginBottom: 16,
+      }}
+    >
+      <div style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, marginBottom: 10 }}>
+        关键原因
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {reasons.slice(0, 2).map((reason, index) => (
+          <div key={index} style={{ display: 'flex', gap: 8, lineHeight: 1.6 }}>
+            <span style={{ color: COLORS.primary, fontWeight: 800 }}>•</span>
+            <span style={{ fontSize: 14, color: COLORS.text }}>{reason}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -363,9 +394,7 @@ function CollapsibleSection({ title, children }) {
 }
 
 // ==================== 操作按钮区 ====================
-function ActionButtons({ suggestion, decisionId, onUpdateStatus, onReanalyze }) {
-  const navigate = useNavigate();
-
+function ActionButtons({ suggestion, onUpdateStatus, onReanalyze }) {
   // 根据建议类型显示不同的按钮
   const getButtons = () => {
     const buttons = [];
@@ -374,14 +403,14 @@ function ActionButtons({ suggestion, decisionId, onUpdateStatus, onReanalyze }) 
       case '现在可以买':
         buttons.push(
           { label: '标记已购买', status: 'purchased', color: COLORS.primary },
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning },
+          { label: '继续冷静', status: 'wishlist', color: COLORS.warning },
           { label: '暂时不买', status: 'skip', color: COLORS.danger }
         );
         break;
 
       case '可以买但建议等优惠':
         buttons.push(
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning },
+          { label: '继续冷静', status: 'wishlist', color: COLORS.warning },
           { label: '标记已购买', status: 'purchased', color: COLORS.primary },
           { label: '暂时不买', status: 'skip', color: COLORS.danger }
         );
@@ -389,7 +418,7 @@ function ActionButtons({ suggestion, decisionId, onUpdateStatus, onReanalyze }) 
 
       case '加入冷静期':
         buttons.push(
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning },
+          { label: '继续冷静', status: 'wishlist', color: COLORS.warning },
           { label: '标记已购买', status: 'purchased', color: COLORS.primary },
           { label: '暂时不买', status: 'skip', color: COLORS.danger }
         );
@@ -397,7 +426,7 @@ function ActionButtons({ suggestion, decisionId, onUpdateStatus, onReanalyze }) 
 
       case '暂缓30天':
         buttons.push(
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning },
+          { label: '继续冷静', status: 'wishlist', color: COLORS.warning },
           { label: '暂时不买', status: 'skip', color: COLORS.danger },
           { label: '标记已购买', status: 'purchased', color: COLORS.primary }
         );
@@ -407,7 +436,7 @@ function ActionButtons({ suggestion, decisionId, onUpdateStatus, onReanalyze }) 
         buttons.push(
           { label: '暂时不买', status: 'skip', color: COLORS.danger },
           { label: '放弃', status: 'given_up', color: '#9CA3AF' },
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning }
+          { label: '继续冷静', status: 'wishlist', color: COLORS.warning }
         );
         break;
 
@@ -421,14 +450,14 @@ function ActionButtons({ suggestion, decisionId, onUpdateStatus, onReanalyze }) 
       case '放入年度计划':
         buttons.push(
           { label: '放入年度计划', status: 'annual_plan', color: '#AF52DE' },
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning },
+          { label: '继续冷静', status: 'wishlist', color: COLORS.warning },
           { label: '暂时不买', status: 'skip', color: COLORS.danger }
         );
         break;
 
       default:
         buttons.push(
-          { label: '加入冷静期', status: 'watching', color: COLORS.warning },
+          { label: '继续冷静', status: 'wishlist', color: COLORS.warning },
           { label: '暂时不买', status: 'skip', color: COLORS.danger },
           { label: '标记已购买', status: 'purchased', color: COLORS.primary }
         );
@@ -518,6 +547,7 @@ export default function PurchaseAdvice() {
   const [decision, setDecision] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reanalyzing, setReanalyzing] = useState(false);
+  const hasSavedNewDecisionRef = useRef(false);
 
   useEffect(() => {
     if (id) {
@@ -531,13 +561,16 @@ export default function PurchaseAdvice() {
       }
     } else {
       // 新生成的建议（从 step4 传来的 state）
-      const stateDecision = location.state;
+      const stateDecision = location.state || getNewWishDraft();
 
-      if (!stateDecision) {
+      if (!stateDecision || !stateDecision.name || !stateDecision.category || !stateDecision.price) {
         // 没有传数据也没有 id，返回列表
         navigate('/wishlist');
         return;
       }
+
+      if (hasSavedNewDecisionRef.current) return;
+      hasSavedNewDecisionRef.current = true;
 
       // 生成购买建议
       const recommendation = generateRecommendation(stateDecision);
@@ -545,16 +578,25 @@ export default function PurchaseAdvice() {
       const newDecision = {
         ...stateDecision,
         recommendation,
-        status: 'watching', // 默认加入冷静期
+        status: 'wishlist', // 默认加入冷静期
       };
 
       // 保存到 localStorage
       const saved = savePurchaseDecision(newDecision);
+      if (!saved) {
+        hasSavedNewDecisionRef.current = false;
+        setDecision(null);
+        setLoading(false);
+        alert('保存失败，请检查浏览器存储空间后重试。');
+        return;
+      }
+      clearNewWishDraft();
       setDecision(saved);
+      navigate(`/new/result/${saved.id}`, { replace: true });
     }
 
     setLoading(false);
-  }, [id, location.state]);
+  }, [id, location.state, navigate]);
 
   // 更新状态
   const handleUpdateStatus = (status) => {
@@ -563,10 +605,9 @@ export default function PurchaseAdvice() {
     const now = new Date();
     const updates = { status };
 
-    // 如果状态改为 watching（冷静期），自动记录 wishlist 信息
-    if (status === 'watching' || status === 'wishlist') {
-      const finalStatus = 'wishlist'; // 统一用 wishlist 状态
-      updates.status = finalStatus;
+    // 如果状态改为 wishlist（冷静期），自动记录提醒信息
+    if (status === 'wishlist') {
+      updates.status = 'wishlist';
       updates.wishlistDate = now.toISOString();
       // 第一次默认 90 天后提醒
       const nextReminder = new Date(now);
@@ -578,6 +619,9 @@ export default function PurchaseAdvice() {
     const updated = updatePurchaseDecision(decision.id, updates);
     if (updated) {
       setDecision(updated);
+    } else {
+      alert('状态保存失败，请稍后重试。');
+      return;
     }
 
     // 短暂延迟后返回想买列表，让用户看到状态变化
@@ -598,6 +642,8 @@ export default function PurchaseAdvice() {
       const updated = updatePurchaseDecision(decision.id, { recommendation });
       if (updated) {
         setDecision(updated);
+      } else {
+        alert('重新分析结果保存失败，请稍后重试。');
       }
       setReanalyzing(false);
     }, 300);
@@ -694,32 +740,24 @@ export default function PurchaseAdvice() {
         {/* 建议卡片 */}
         <SuggestionCard suggestion={suggestion} itemName={decision.name} />
 
-        {/* 消费画像标签 */}
-        <ProfileTags tags={tags} />
-
-        {/* 为什么这样建议 */}
-        <ReasonCards reasons={reasons} />
-
-        {/* 预算影响 */}
-        <TextBlock title="预算影响" text={budgetImpact} icon="💰" />
-
-        {/* 库存影响 */}
-        <TextBlock title="库存影响" text={inventoryImpact} icon="📦" />
-
-        {/* 参考信息（折叠区域） */}
-        {referenceInfo && (
-          <CollapsibleSection title="参考信息">
-            {referenceInfo}
-          </CollapsibleSection>
-        )}
-
-        {/* 操作按钮区 */}
+        {/* 操作按钮区：移动到结论后，减少决策路径 */}
         <ActionButtons
           suggestion={suggestion}
-          decisionId={decision.id}
           onUpdateStatus={handleUpdateStatus}
           onReanalyze={handleReanalyze}
         />
+
+        <KeyReasonCard reasons={reasons} />
+
+        <CollapsibleSection title="展开完整分析">
+          <ProfileTags tags={tags} />
+          <ReasonCards reasons={reasons} />
+          <TextBlock title="预算影响" text={budgetImpact} icon="💰" />
+          <TextBlock title="库存影响" text={inventoryImpact} icon="📦" />
+          {referenceInfo && (
+            <TextBlock title="参考信息" text={referenceInfo} icon="📌" />
+          )}
+        </CollapsibleSection>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { getOwnedItems, addOwnedItem } from '../data/store';
 import { itemStatuses, useFrequencies } from '../utils/categories';
 import { getItemStatusLabel } from '../utils/categories';
+import { getNewWishDraft, saveNewWishDraft } from '../utils/newWishDraft';
 import COLORS from '../theme';
 
 const navBarStyle = {
@@ -88,7 +89,7 @@ function StepIndicator({ current }) {
 export default function NewWishStep4() {
   const navigate = useNavigate();
   const location = useLocation();
-  const prevState = location.state || {};
+  const prevState = { ...getNewWishDraft(), ...(location.state || {}) };
 
   const category = prevState.category || '';
 
@@ -98,6 +99,10 @@ export default function NewWishStep4() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemStatus, setNewItemStatus] = useState('');
   const [newItemFrequency, setNewItemFrequency] = useState('');
+
+  useEffect(() => {
+    saveNewWishDraft({ existingItems: checkedItems });
+  }, [checkedItems]);
 
   // 加载同类物品
   useEffect(() => {
@@ -141,34 +146,34 @@ export default function NewWishStep4() {
     setShowAddForm(false);
   };
 
-  // 跳过
+  // 没有 / 跳过
   const handleSkip = () => {
-    // 生成购买建议 -> 导航到结果页
-    navigate('/new/result', {
-      state: {
-        ...prevState,
-        existingItems: checkedItems,
-      },
-    });
+    const nextState = {
+      ...prevState,
+      existingItems: checkedItems,
+    };
+    saveNewWishDraft(nextState);
+    // 看看建议 -> 导航到结果页
+    navigate('/new/result', { state: nextState });
   };
 
-  // 生成购买建议
+  // 看看建议
   const handleGenerate = () => {
-    navigate('/new/result', {
-      state: {
-        ...prevState,
-        existingItems: checkedItems,
-      },
-    });
+    const nextState = {
+      ...prevState,
+      existingItems: checkedItems,
+    };
+    saveNewWishDraft(nextState);
+    navigate('/new/result', { state: nextState });
   };
 
   const handlePrev = () => {
-    navigate('/new/step3', {
-      state: {
-        ...prevState,
-        existingItems: checkedItems,
-      },
-    });
+    const nextState = {
+      ...prevState,
+      existingItems: checkedItems,
+    };
+    saveNewWishDraft(nextState);
+    navigate('/new/step3', { state: nextState });
   };
 
   return (
@@ -184,7 +189,7 @@ export default function NewWishStep4() {
         <button style={backBtnStyle} onClick={handlePrev}>
           &#8592;
         </button>
-        <span style={titleStyle}>记录想买 (4/4)</span>
+        <span style={titleStyle}>记录心愿 · 4/4</span>
         <StepIndicator current={4} />
       </div>
 
@@ -199,14 +204,17 @@ export default function NewWishStep4() {
             marginBottom: 16,
           }}
         >
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: COLORS.text }}>
-              同类已有物品
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: COLORS.text }}>
+                家里有类似的吗？
+              </div>
+              <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
+                看看是否重复购买；没有也可以直接跳过
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.textTertiary, marginTop: 2 }}>
+                分类：{category || '未选择'}
+              </div>
             </div>
-            <div style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 2 }}>
-              分类：{category || '未选择'}
-            </div>
-          </div>
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             style={{
@@ -221,7 +229,7 @@ export default function NewWishStep4() {
               fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             }}
           >
-            + 新增已有物品
+            + 记录一个已有
           </button>
         </div>
 
@@ -469,7 +477,7 @@ export default function NewWishStep4() {
               fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             }}
           >
-            跳过
+            没有 / 跳过
           </button>
           <button
             onClick={handleGenerate}
@@ -486,7 +494,7 @@ export default function NewWishStep4() {
               fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
             }}
           >
-            生成购买建议
+            看看建议
           </button>
         </div>
       </div>
